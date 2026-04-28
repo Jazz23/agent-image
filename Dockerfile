@@ -14,3 +14,5 @@ RUN playwright-cli install-browser chrome-for-testing --with-deps \
     && chown -R agent:agent /ms-playwright
 
 USER agent
+
+COPY cli.config.json /home/agent/.playwright/cli.config.json
