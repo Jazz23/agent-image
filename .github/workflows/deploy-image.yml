@@ -1,0 +1,65 @@
+name: Deploy image
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build image on ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    outputs:
+      docker-image-name: ${{ steps.image.outputs.docker-image-name }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Generate Docker image name
+        id: image
+        run: echo "docker-image-name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/agent-image" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        run: |
+          docker build \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            -t "${{ steps.image.outputs.docker-image-name }}:${{ matrix.os }}" \
+            .
+          docker push "${{ steps.image.outputs.docker-image-name }}:${{ matrix.os }}"
+
+  combine:
+    name: Push latest manifest
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push manifest
+        run: |
+          docker manifest create ${{ needs.build.outputs.docker-image-name }}:latest \
+            --amend ${{ needs.build.outputs.docker-image-name }}:ubuntu-24.04-arm \
+            --amend ${{ needs.build.outputs.docker-image-name }}:ubuntu-latest
+
+          docker manifest push ${{ needs.build.outputs.docker-image-name }}:latest
