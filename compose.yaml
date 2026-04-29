@@ -1,0 +1,11 @@
+name: Opencode Pilot
+
+services:
+  opencode-pilot:
+    image: agent-image:latest
+    command: ["sleep", "infinity"]
+    volumes:
+      - ./opencode/config:/home/agent/.config/opencode
+      - ./opencode/share:/home/agent/.local/share/opencode
+      - ./opencode/state:/home/agent/.local/state/opencode
+      - ./opencode/agents:/home/agent/.agents
